@@ -1,7 +1,7 @@
 bl_info = {
 	"name": "AN7 Point Generator",
 	"author": "Iaian7 - John Einselen",
-	"version": (0, 1),
+	"version": (0, 2),
 	"blender": (2, 80, 0),
 	"location": "Scene (edit mode) > AN7 Tools > Point Generator",
 	"description": "Creates various point arrays with vertex data",
@@ -325,6 +325,114 @@ class AN7_Point_Hex(bpy.types.Operator):
 
 		return {'FINISHED'}
 
+class AN7_Point_Tri(bpy.types.Operator):
+	bl_idname = "an7pointtri.offset"
+	bl_label = "Replace Mesh" # "Create Points" is a lot nicer, but I'm concerned this is a real easy kill switch for important geometry!
+	bl_description = "Create points using the selected options, deleting and replacing the currently selected mesh"
+	bl_options = {'REGISTER', 'UNDO'}
+
+	def execute(self, context):
+		# Properties settings
+		count = bpy.context.scene.an7_point_gen_settings.tri_count
+		radius = bpy.context.scene.an7_point_gen_settings.grid_spacing
+		space = radius * 2.0
+		# compensate the radius scale: convert a furthest-point radius to nearest-side radius
+		if bpy.context.scene.an7_point_gen_settings.compensate_scale:
+			radius /= 0.8660254037844386467637231707529361834714026269051903140279034897 # sine 60°
+		# Recursion settings
+		recursion = bpy.context.scene.an7_point_gen_settings.division_levels
+		percentage = bpy.context.scene.an7_point_gen_settings.division_percentage
+		# Positional variables
+		x = space * 0.5 # cosine 60°
+		y = space * 0.8660254037844386467637231707529361834714026269051903140279034897 # sine 60°
+		pi = 3.1415926535897932384626433832795028841971693993751058209749445923
+
+		# Get the currently active object
+		obj = bpy.context.object
+
+		# Create a new bmesh
+		bm = bmesh.new()
+
+		# Set up attribute layers
+		pr = bm.verts.layers.float.new('point_radius')
+		pv = bm.verts.layers.float_vector.new('point_vector')
+		ps = bm.verts.layers.float.new('point_sequence')
+
+		# Create initial grid
+		grid = []
+		for a in range(1, count):
+			for b in range(0, a):
+				# Hexagonal grid points with triangular directions are created, and then shifted in counter-clockwise directions to fill out each row
+				# A = column start
+				# B = row offset
+				odd = floor(b % 2)
+					# top-middle
+				grid.append([float(a - b) * x, (float(a) * 1.5 + 1.0 - odd * 0.5) * y, 0.0, radius])
+					# top-right
+				# grid.append([(float(a) * 2 + 1.0 - floor(float(b) * 0.5 + 0.5) * y, float(b) * y, 0.0, radius])
+
+					# lower left
+				grid.append([float(a + b) * x, float(-a + b) * y, 0.0, radius])
+					# lower right
+				grid.append([float(-a) * x + float(b) * space, float(-a) * y, 0.0, radius])
+					# right
+				grid.append([float(-a) * space + float(b) * x, float(-b) * y, 0.0, radius])
+					# upper right
+				grid.append([float(-a - b) * x, float(a - b) * y, 0.0, radius])
+
+		# Subdivide the grid
+		rec = 0
+		gridA = []
+		gridB = []
+		while rec < recursion:
+			rec += 1
+			shuffle(grid)
+			for i, p in enumerate(grid):
+				# Recursion variables
+				s = space / (2.0 ** (float(rec) * 1.0)) * bpy.context.scene.an7_point_gen_settings.temp
+				r = p[3] * 0.5
+				if float(i) / float(len(grid)) < percentage:
+					# Divide hexagon space into three
+						# top
+					gridA.append([p[0], p[1] + s, 0.0, r])
+						# lower left
+					gridA.append([p[0] + y * s, p[1] - x * s, 0.0, r])
+						# lower right
+					gridA.append([p[0] - y * s, p[1] - x * s, 0.0, r])
+					# So I didn't think this through the first time, and dividing hexagons DOESN'T make more hexagons, lol...keeping the code for posterity/laughs?
+						# upper left column
+					# gridA.append([p[0] + x * s, p[1] + y * s, 0.0, r])
+						# left
+					# gridA.append([p[0] + s, p[1], 0.0, r])
+						# lower left
+					# gridA.append([p[0] + x * s, p[1] - y * s, 0.0, r])
+						# lower right
+					# gridA.append([p[0] - x * s, p[1] - y * s, 0.0, r])
+						# right
+					# gridA.append([p[0] - s, p[1], 0.0, r])
+						# upper right
+					# gridA.append([p[0] - x * s, p[1] + y * s, 0.0, r])
+				else:
+					gridB.append(p)
+			grid = deepcopy(gridA)
+			gridA.clear()
+
+		shuffle(grid)
+		gridB.extend(grid)
+
+		# Create vertices from the points list
+		for i, p in enumerate(gridB):
+			v = bm.verts.new((p[0], p[1], p[2]))
+			v[pr] = p[3]
+			v[pv] = Vector([uniform(-1.0, 1.0), uniform(-1.0, 1.0), uniform(-1.0, 1.0)]).normalized()
+			v[ps] = 0.0 if i == 0 else float(i) / float(len(gridB) - 1)
+
+		# Replace object with new mesh data
+		bm.to_mesh(obj.data)
+		bm.free()
+		obj.data.update() # This ensures the viewport updates
+
+		return {'FINISHED'}
 
 ###########################################################################
 # User preferences and UI rendering class
@@ -350,7 +458,8 @@ class an7PointGenSettings(bpy.types.PropertyGroup):
 		description='Point array format',
 		items=[
 			('GRID', 'Rectangular Grid', 'Rectangular array of points'),
-			('HEX', 'Hexagonal Grid', 'Hexagonal layout of points'),
+			('TRI', 'Triangular Grid', 'Triangular layout of points'),
+			('HEX', 'Hexagonal Grid', 'Hexagonal layout of points (will not subdivide without gaps)'),
 			('WALK', 'Random Walk', 'Generates a random string of points')
 			],
 		default='GRID')
@@ -358,7 +467,7 @@ class an7PointGenSettings(bpy.types.PropertyGroup):
 	# Grid settings
 	grid_count_X: bpy.props.IntProperty(
 		name="Grid Count",
-		description="Number of starting elements in both X and Y axis",
+		description="Number of starting elements in the X and Y axis",
 		default=8,
 		soft_min=2,
 		soft_max=20,
@@ -366,17 +475,27 @@ class an7PointGenSettings(bpy.types.PropertyGroup):
 		max=100,)
 	grid_count_Y: bpy.props.IntProperty(
 		name="Grid Count",
-		description="Number of starting elements in both X and Y axis",
+		description="Number of starting elements in the X and Y axis",
 		default=8,
 		soft_min=2,
 		soft_max=20,
 		min=2,
 		max=100,)
 
+	# Triangular settings
+	tri_count: bpy.props.IntProperty(
+		name="Grid Count",
+		description="Number of starting elements in the radius axis",
+		default=4,
+		soft_min=2,
+		soft_max=20,
+		min=1,
+		max=100,)
+
 	# Hexagonal settings
 	hex_count: bpy.props.IntProperty(
 		name="Grid Count",
-		description="Number of starting elements in both X and Y axis",
+		description="Number of starting elements in the radius axis",
 		default=4,
 		soft_min=2,
 		soft_max=20,
@@ -560,8 +679,24 @@ class AN7TOOLS_PT_point_gen(bpy.types.Panel):
 					box.label(text="Generate " + str(int(pointCount)) + " points")
 					box.label(text="WARNING: replaces mesh")
 
-			# Rectangular Grid
+			# Hexagonal Grid
 			if bpy.context.scene.an7_point_gen_settings.gen_type == "HEX":
+				layout.prop(context.scene.an7_point_gen_settings, 'hex_count')
+				layout.prop(context.scene.an7_point_gen_settings, 'grid_spacing')
+				layout.prop(context.scene.an7_point_gen_settings, 'compensate_scale')
+				layout.prop(context.scene.an7_point_gen_settings, 'temp')
+				layout.prop(context.scene.an7_point_gen_settings, 'division_levels')
+				layout.prop(context.scene.an7_point_gen_settings, 'division_percentage')
+				box = layout.box()
+				if bpy.context.view_layer.objects.active.type == "MESH" and bpy.context.object.mode == "OBJECT":
+					layout.operator(AN7_Point_Hex.bl_idname)
+					pointCount = bpy.context.scene.an7_point_gen_settings.hex_count
+					pointCount = 3 * (pointCount*pointCount) + 3 * pointCount + 1
+					box.label(text="Generate " + str(int(pointCount)) + " points")
+					box.label(text="WARNING: replaces mesh")
+
+			# Triangular Grid
+			if bpy.context.scene.an7_point_gen_settings.gen_type == "TRI":
 				layout.prop(context.scene.an7_point_gen_settings, 'hex_count')
 				layout.prop(context.scene.an7_point_gen_settings, 'grid_spacing')
 				layout.prop(context.scene.an7_point_gen_settings, 'compensate_scale')
