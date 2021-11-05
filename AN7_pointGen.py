@@ -1,10 +1,10 @@
 bl_info = {
 	"name": "AN7 Point Generator",
 	"author": "Iaian7 - John Einselen",
-	"version": (0, 4),
+	"version": (0, 5),
 	"blender": (2, 80, 0),
-	"location": "Scene (edit mode) > AN7 Tools > Point Generator",
-	"description": "Creates various point arrays with vertex data",
+	"location": "Scene (object mode) > AN7 Tools > Point Generator",
+	"description": "Creates point arrays with vertex attribute data",
 	"warning": "inexperienced developer, use at your own risk",
 	"wiki_url": "",
 	"tracker_url": "",
@@ -47,12 +47,12 @@ class AN7_Point_Walk(bpy.types.Operator):
 		attempts = bpy.context.scene.an7_point_gen_settings.max_attempts # maximum number of iterations to try and meet the target number of points
 		# Properties settings
 		dimensions = True if bpy.context.scene.an7_point_gen_settings.walk_dimensions == "3D" else False
-		# shapeX = bpy.context.scene.an7_point_gen_settings.walk_vector[0] * 0.5 # X distribution radius
-		# shapeY = bpy.context.scene.an7_point_gen_settings.walk_vector[1] * 0.5 # Y distribution radius
-		# shapeZ = bpy.context.scene.an7_point_gen_settings.walk_vector[2] * 0.5 # Z distribution radius
+		directionality = bpy.context.scene.an7_point_gen_settings.walk_directionality
+		direction_vector = bpy.context.scene.an7_point_gen_settings.walk_vector
+		rotation = bpy.context.scene.an7_point_gen_settings.walk_rotation
 		rMinimum = bpy.context.scene.an7_point_gen_settings.radius_min # minimum radius of the generated point
 		rMaximum = bpy.context.scene.an7_point_gen_settings.radius_max # maximum radius of the generated point
-		rDecay = bpy.context.scene.an7_point_gen_settings.radius_decay # maximum radius of the generated point
+		rDecay = bpy.context.scene.an7_point_gen_settings.radius_decay
 
 		# Get the currently active object
 		obj = bpy.context.object
@@ -61,9 +61,9 @@ class AN7_Point_Walk(bpy.types.Operator):
 		bm = bmesh.new()
 
 		# Set up attribute layers
-		pr = bm.verts.layers.float.new('point_radius')
-		ps = bm.verts.layers.float.new('point_sequence')
-		pv = bm.verts.layers.float_vector.new('point_vector')
+		pi = bm.verts.layers.float.new('index')
+		ps = bm.verts.layers.float.new('scale')
+		pr = bm.verts.layers.float_vector.new('rotation')
 
 		# Start timer
 		timer = str(time.time())
@@ -100,9 +100,15 @@ class AN7_Point_Walk(bpy.types.Operator):
 
 			# Generate random vector
 			if dimensions:
-				vec = Vector([uniform(-1.0, 1.0), uniform(-1.0, 1.0), uniform(-1.0, 1.0)]).normalized()
+				vec = Vector([uniform(-1.0, 1.0), uniform(-1.0, 1.0), uniform(-1.0, 1.0)])
 			else:
-				vec = Vector([uniform(-1.0, 1.0), uniform(-1.0, 1.0), 0.0]).normalized()
+				vec = Vector([uniform(-1.0, 1.0), uniform(-1.0, 1.0), 0.0])
+			# Blend
+			if directionality > 0.0:
+				vec = vec.lerp(direction_vector, directionality)
+			# Normalise
+			vec = vec.normalized()
+
 			# Scale and offset the random vector using the radius of the previous iteration and the current iteration, along with the previous position
 			vec *= radius + rPrevious
 			vec += pPrevious
@@ -126,19 +132,39 @@ class AN7_Point_Walk(bpy.types.Operator):
 				pPrevious = vec
 				# And now some data housekeeping
 				failmax = max(failmax, count) # This is entirely for reporting purposes and is not needed structurally
-				# if count > failuresHalf: # This is a hard-coded efficiency attempt, dropping the maximum scale if we're getting a lot of failures
-				# 	rMaximum = mediumR
 				count = 0
 
 		# One last check, in case the stop cause was maximum failure count and this value wasn't updated in a successful check status
 		failmax = max(failmax, count) # This is entirely for reporting purposes and is not needed structurally
 
+		pointsEnd = len(points) - 1
 		# Create vertices from the points list
 		for i, p in enumerate(points):
 			v = bm.verts.new((p[0], p[1], p[2]))
-			v[pr] = p[3]
-			v[ps] = 0.0 if i == 0 else float(i) / float(len(points) - 1)
-			v[pv] = Vector([uniform(-1.0, 1.0), uniform(-1.0, 1.0), uniform(-1.0, 1.0)]).normalized() # This would make SO much more sense if it aligned the current item to the previous or next item
+			v[pi] = 0.0 if i == 0 else float(i) / float(len(points) - 1)
+			v[ps] = p[3]
+			# Point rotations
+			tempX = 0.0
+			tempY = 0.0
+			tempZ = 0.0
+			if rotation == "AHEAD":
+				if i < pointsEnd:
+					tempX = points[i+1][0] - p[0]
+					tempY = points[i+1][1] - p[1]
+					tempZ = points[i+1][2] - p[2]
+				v[pr] = Vector([tempX, tempY, tempZ]).to_track_quat('X', 'Z').to_euler()
+			elif rotation == "BEHIND":
+				if i == 0:
+					tempX = points[1][0] - p[0]
+					tempY = points[1][1] - p[1]
+					tempZ = points[1][2] - p[2]
+				else:
+					tempX = p[0] - points[i-1][0]
+					tempY = p[1] - points[i-1][1]
+					tempZ = p[2] - points[i-1][2]
+				v[pr] = Vector([tempX, tempY, tempZ]).to_track_quat('-X', 'Z').to_euler()
+			else:
+				v[pr] = Vector([uniform(-math.pi, math.pi), uniform(-math.pi, math.pi), uniform(-math.pi, math.pi)])
 
 		# Update the feedback strings
 		context.scene.an7_point_gen_settings.feedback_elements = str(len(points))
@@ -625,14 +651,23 @@ class an7PointGenSettings(bpy.types.PropertyGroup):
 			('3D', '3D', 'Randomly generate points in all 3 dimensions'),
 			],
 		default='3D')
-	walk_vector: bpy.props.FloatVectorProperty(
-		name="Vector",
-		subtype="XYZ",
-		description="Favour a specific vector when generating each step",
-		default=[0.0, 0.0, 0.0],
+	walk_directionality: bpy.props.FloatProperty(
+		name="Directionality",
+		description="Amount to favour the specified vector when generating each step",
+		default=0.0,
+		step=10,
 		soft_min=0.0,
 		soft_max=1.0,
 		min=0.0,
+		max=1.0,)
+	walk_vector: bpy.props.FloatVectorProperty(
+		name="Vector",
+		subtype="XYZ",
+		description="Vector to favour when generating each step",
+		default=[1.0, 0.0, 0.0],
+		soft_min=-1.0,
+		soft_max=1.0,
+		min=-1.0,
 		max=1.0,)
 
 	radius_min: bpy.props.FloatProperty(
@@ -657,6 +692,16 @@ class an7PointGenSettings(bpy.types.PropertyGroup):
 		name="Radius Decay",
 		description='Linearly reduces the maximum radius based on number of recursions and maximum number of elements',
 		default=False)
+
+	walk_rotation: bpy.props.EnumProperty(
+		name='Rotation',
+		description='Mask for the area where points will be created',
+		items=[
+			('RANDOM', 'Random', 'Assign a random rotation to each point'),
+			('AHEAD', 'Look Ahead', 'Each point will aim at the next point in the sequence'),
+			('BEHIND', 'Look Behind', 'Each point will aim at the previous point in the sequence'),
+			],
+		default='RANDOM')
 
 	max_elements: bpy.props.IntProperty(
 		name="Max Points",
@@ -699,7 +744,6 @@ class an7PointGenSettings(bpy.types.PropertyGroup):
 		name="Feedback",
 		description="Stores the total time spent processing the last created array",
 		default="",)
-
 
 class AN7TOOLS_PT_point_gen(bpy.types.Panel):
 	bl_space_type = "VIEW_3D"
@@ -822,13 +866,17 @@ class AN7TOOLS_PT_point_gen(bpy.types.Panel):
 			# Random Walk
 			elif bpy.context.scene.an7_point_gen_settings.gen_type == "WALK":
 				layout.prop(context.scene.an7_point_gen_settings, 'walk_dimensions')
-				# col=layout.column()
-				# col.prop(context.scene.an7_point_gen_settings, 'walk_vector')
+				layout.prop(context.scene.an7_point_gen_settings, 'walk_directionality')
+				if bpy.context.scene.an7_point_gen_settings.walk_directionality > 0.0:
+					col=layout.column()
+					col.prop(context.scene.an7_point_gen_settings, 'walk_vector')
 
 				row = layout.row()
 				row.prop(context.scene.an7_point_gen_settings, 'radius_min')
 				row.prop(context.scene.an7_point_gen_settings, 'radius_max')
 				layout.prop(context.scene.an7_point_gen_settings, 'radius_decay')
+
+				layout.prop(context.scene.an7_point_gen_settings, 'walk_rotation')
 
 				layout.prop(context.scene.an7_point_gen_settings, 'max_elements')
 				layout.prop(context.scene.an7_point_gen_settings, 'max_failures')
