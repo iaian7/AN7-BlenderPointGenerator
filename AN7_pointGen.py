@@ -1,7 +1,7 @@
 bl_info = {
 	"name": "AN7 Point Generator",
 	"author": "Iaian7 - John Einselen",
-	"version": (0, 6),
+	"version": (0, 6, 1),
 	"blender": (2, 80, 0),
 	"location": "Scene (object mode) > AN7 Tools > Point Generator",
 	"description": "Creates point arrays with vertex attribute data",
@@ -265,7 +265,6 @@ class AN7_Point_Tri(bpy.types.Operator):
 		# Positional variables
 		x = radius * 0.8660254037844386467637231707529361834714026269051903140279034897 # sine 60°
 		y = radius * 0.5 # cosine 60°
-		pi = 3.1415926535897932384626433832795028841971693993751058209749445923
 
 		# Get the currently active object
 		obj = bpy.context.object
@@ -287,7 +286,7 @@ class AN7_Point_Tri(bpy.types.Operator):
 				# A = column start
 				# B = row offset
 				odd = math.floor(b % 2)
-				rotation = pi if odd == 0 else 0.0 # determine the orientation of the element
+				rotation = math.pi if odd == 0 else 0.0 # determine the orientation of the element
 					# Triangular array (just the top-middle of the Tri-Hex pattern)
 				grid.append([(float(a) - float(b)) * x, (float(a) * 1.5 + 1.0 - odd * 0.5) * radius - offset, 0.0, radius, rotation])
 
@@ -304,8 +303,8 @@ class AN7_Point_Tri(bpy.types.Operator):
 					s = 1.0 if p[4] < 1.0 else -1.0 # determine the orientation of the element, which will flip all of our coordinates as needed
 					s /= (2.0 ** float(rec)) # scale multiplier based on the current recursion level
 					r = radius * abs(s) # calculate radius for this recursion level
-					rotationA = pi if s < 0.0 else 0.0 # invert the rotation of the original point
-					rotationB = pi if rotationA == 0.0 else 0.0 # invert it again...what...why...somehow nothing is working how I want it to!
+					rotationA = math.pi if s < 0.0 else 0.0 # invert the rotation of the original point
+					rotationB = math.pi if rotationA == 0.0 else 0.0 # invert it again...what...why...somehow nothing is working how I want it to!
 					# Divide triangular space into four elements
 						# middle
 					gridA.append([p[0], p[1], 0.0, r, rotationB])
@@ -356,7 +355,6 @@ class AN7_Point_TriHex(bpy.types.Operator):
 		# Positional variables
 		x = radius * 0.8660254037844386467637231707529361834714026269051903140279034897 # sine 60°
 		y = radius * 0.5 # cosine 60°
-		pi = 3.1415926535897932384626433832795028841971693993751058209749445923
 
 		# Get the currently active object
 		obj = bpy.context.object
@@ -378,20 +376,20 @@ class AN7_Point_TriHex(bpy.types.Operator):
 				# A = column start
 				# B = row offset
 				odd = math.floor(b % 2)
-				rotation1 = 0.0 if odd == 0 else pi # determine the orientation of the element
-				rotation2 = pi if odd == 0 else 0.0 # determine the orientation of the element
+				rotA = 0.0 if odd == 0 else math.pi # determine the orientation of the element
+				rotB = math.pi if odd == 0 else 0.0 # determine the orientation of the element
 					# top-middle
-				grid.append([(float(a) - float(b)) * x, (float(a) * 1.5 + 1.0 - odd * 0.5) * radius, 0.0, radius, rotation2])
+				grid.append([(float(a) - float(b)) * x, (float(a) * 1.5 + 1.0 - odd * 0.5) * radius, 0.0, radius, rotB])
 					# top-right
-				grid.append([(float(a * 2 + 1) - math.floor(float(b) * 0.5 + 0.5)) * x, (float(b) * 1.5 + 1.0 - odd * 0.5) * 0.5 * radius, 0.0, radius, rotation1])
+				grid.append([(float(a * 2 + 1) - math.floor(float(b) * 0.5 + 0.5)) * x, (float(b) * 1.5 + 1.0 - odd * 0.5) * 0.5 * radius, 0.0, radius, rotA])
 					# top-left (x-mirror of top-right)
-				grid.append([(float(a * 2 + 1) - math.floor(float(b) * 0.5 + 0.5)) * -x, (float(b) * 1.5 + 1.0 - odd * 0.5) * 0.5 * radius, 0.0, radius, rotation1])
+				grid.append([(float(a * 2 + 1) - math.floor(float(b) * 0.5 + 0.5)) * -x, (float(b) * 1.5 + 1.0 - odd * 0.5) * 0.5 * radius, 0.0, radius, rotA])
 					# bottom-middle (y-mirror of top-middle)
-				grid.append([(float(a) - float(b)) * x, (float(a) * 1.5 + 1.0 - odd * 0.5) * -radius, 0.0, radius, rotation1])
+				grid.append([(float(a) - float(b)) * x, (float(a) * 1.5 + 1.0 - odd * 0.5) * -radius, 0.0, radius, rotA])
 					# bottom-right (y-mirror of top-right)
-				grid.append([(float(a * 2 + 1) - math.floor(float(b) * 0.5 + 0.5)) * x, (float(b) * 1.5 + 1.0 - odd * 0.5) * 0.5 * -radius, 0.0, radius, rotation2])
+				grid.append([(float(a * 2 + 1) - math.floor(float(b) * 0.5 + 0.5)) * x, (float(b) * 1.5 + 1.0 - odd * 0.5) * 0.5 * -radius, 0.0, radius, rotB])
 					# top-left (x&y-mirror of top-right)
-				grid.append([(float(a * 2 + 1) - math.floor(float(b) * 0.5 + 0.5)) * -x, (float(b) * 1.5 + 1.0 - odd * 0.5) * 0.5 * -radius, 0.0, radius, rotation2])
+				grid.append([(float(a * 2 + 1) - math.floor(float(b) * 0.5 + 0.5)) * -x, (float(b) * 1.5 + 1.0 - odd * 0.5) * 0.5 * -radius, 0.0, radius, rotB])
 
 		# Subdivide the grid
 		rec = 0
@@ -403,11 +401,15 @@ class AN7_Point_TriHex(bpy.types.Operator):
 			for i, p in enumerate(grid):
 				if (float(i) / float(len(grid))) < percentage:
 					# Recursion variables
+					print("p:")
+					print(p)
+					print("p[4]:")
+					print(p[4])
 					s = 1.0 if p[4] < 1.0 else -1.0 # determine the orientation of the element, which will flip all of our coordinates as needed
 					s /= (2.0 ** float(rec)) # scale multiplier based on the current recursion level
 					r = radius * abs(s) # calculate radius for this recursion level
-					rotationA = pi if s < 0.0 else 0.0 # invert the rotation of the original point
-					rotationB = pi if rotationA == 0.0 else 0.0 # invert it again...what...why...somehow nothing is working how I want it to!
+					rotationA = math.pi if s < 0.0 else 0.0 # invert the rotation of the original point
+					rotationB = math.pi if rotationA == 0.0 else 0.0 # invert it again...what...why...somehow nothing is working how I want it to!
 					# Divide triangular space into four elements
 						# middle
 					gridA.append([p[0], p[1], 0.0, r, rotationB])
