@@ -1,7 +1,7 @@
 bl_info = {
 	"name": "AN7 Point Generator",
 	"author": "Iaian7 - John Einselen",
-	"version": (0, 2),
+	"version": (0, 3),
 	"blender": (2, 80, 0),
 	"location": "Scene (edit mode) > AN7 Tools > Point Generator",
 	"description": "Creates various point arrays with vertex data",
@@ -283,26 +283,13 @@ class AN7_Point_Hex(bpy.types.Operator):
 				s = space / (2.0 ** (float(rec) * 1.0)) * bpy.context.scene.an7_point_gen_settings.temp
 				r = p[3] * 0.5
 				if float(i) / float(len(grid)) < percentage:
-					# Divide hexagon space into three
+					# Divide hexagon space into three (hexagons don't divide into more hexagons, so this is the compromise we're making)
 						# top
 					gridA.append([p[0], p[1] + s, 0.0, r])
 						# lower left
 					gridA.append([p[0] + y * s, p[1] - x * s, 0.0, r])
 						# lower right
 					gridA.append([p[0] - y * s, p[1] - x * s, 0.0, r])
-					# So I didn't think this through the first time, and dividing hexagons DOESN'T make more hexagons, lol...keeping the code for posterity/laughs?
-						# upper left column
-					# gridA.append([p[0] + x * s, p[1] + y * s, 0.0, r])
-						# left
-					# gridA.append([p[0] + s, p[1], 0.0, r])
-						# lower left
-					# gridA.append([p[0] + x * s, p[1] - y * s, 0.0, r])
-						# lower right
-					# gridA.append([p[0] - x * s, p[1] - y * s, 0.0, r])
-						# right
-					# gridA.append([p[0] - s, p[1], 0.0, r])
-						# upper right
-					# gridA.append([p[0] - x * s, p[1] + y * s, 0.0, r])
 				else:
 					gridB.append(p)
 			grid = deepcopy(gridA)
@@ -336,15 +323,12 @@ class AN7_Point_Tri(bpy.types.Operator):
 		count = bpy.context.scene.an7_point_gen_settings.tri_count
 		radius = bpy.context.scene.an7_point_gen_settings.grid_spacing
 		space = radius * 2.0
-		# compensate the radius scale: convert a furthest-point radius to nearest-side radius
-		if bpy.context.scene.an7_point_gen_settings.compensate_scale:
-			radius /= 0.8660254037844386467637231707529361834714026269051903140279034897 # sine 60°
 		# Recursion settings
 		recursion = bpy.context.scene.an7_point_gen_settings.division_levels
 		percentage = bpy.context.scene.an7_point_gen_settings.division_percentage
 		# Positional variables
-		x = space * 0.5 # cosine 60°
-		y = space * 0.8660254037844386467637231707529361834714026269051903140279034897 # sine 60°
+		x = radius * 0.8660254037844386467637231707529361834714026269051903140279034897 # sine 60°
+		y = radius * 0.5 # cosine 60°
 		pi = 3.1415926535897932384626433832795028841971693993751058209749445923
 
 		# Get the currently active object
@@ -360,25 +344,27 @@ class AN7_Point_Tri(bpy.types.Operator):
 
 		# Create initial grid
 		grid = []
-		for a in range(1, count):
-			for b in range(0, a):
+		for a in range(0, count):
+			for b in range(0, a * 2 + 1):
 				# Hexagonal grid points with triangular directions are created, and then shifted in counter-clockwise directions to fill out each row
+				# Except I'm not doing the math for all of these to rotate in the same direction from 6 individual spokes...I'm just mirroring the first two to fill out all six "panels"...I feel like it's impure/cheating, but the order is randomised to do the division anyway, so what does it matter?
 				# A = column start
 				# B = row offset
-				odd = floor(b % 2)
+				odd = math.floor(b % 2)
+				rotation1 = 0.0 if odd == 0 else pi # determine the orientation of the element, which will flip all of our coordinates as needed
+				rotation2 = pi if odd == 0 else 0.0 # determine the orientation of the element, which will flip all of our coordinates as needed
 					# top-middle
-				grid.append([float(a - b) * x, (float(a) * 1.5 + 1.0 - odd * 0.5) * y, 0.0, radius])
+				grid.append([(float(a) - float(b)) * x, (float(a) * 1.5 + 1.0 - odd * 0.5) * radius, 0.0, radius, rotation2])
 					# top-right
-				# grid.append([(float(a) * 2 + 1.0 - floor(float(b) * 0.5 + 0.5) * y, float(b) * y, 0.0, radius])
-
-					# lower left
-				grid.append([float(a + b) * x, float(-a + b) * y, 0.0, radius])
-					# lower right
-				grid.append([float(-a) * x + float(b) * space, float(-a) * y, 0.0, radius])
-					# right
-				grid.append([float(-a) * space + float(b) * x, float(-b) * y, 0.0, radius])
-					# upper right
-				grid.append([float(-a - b) * x, float(a - b) * y, 0.0, radius])
+				grid.append([(float(a * 2 + 1) - math.floor(float(b) * 0.5 + 0.5)) * x, (float(b) * 1.5 + 1.0 - odd * 0.5) * 0.5 * radius, 0.0, radius, rotation1])
+					# top-left (x-mirror of top-right)
+				grid.append([(float(a * 2 + 1) - math.floor(float(b) * 0.5 + 0.5)) * -x, (float(b) * 1.5 + 1.0 - odd * 0.5) * 0.5 * radius, 0.0, radius, rotation1])
+					# bottom-middle (y-mirror of top-middle)
+				grid.append([(float(a) - float(b)) * x, (float(a) * 1.5 + 1.0 - odd * 0.5) * -radius, 0.0, radius, rotation1])
+					# bottom-right (y-mirror of top-right)
+				grid.append([(float(a * 2 + 1) - math.floor(float(b) * 0.5 + 0.5)) * x, (float(b) * 1.5 + 1.0 - odd * 0.5) * 0.5 * -radius, 0.0, radius, rotation2])
+					# top-left (x&y-mirror of top-right)
+				grid.append([(float(a * 2 + 1) - math.floor(float(b) * 0.5 + 0.5)) * -x, (float(b) * 1.5 + 1.0 - odd * 0.5) * 0.5 * -radius, 0.0, radius, rotation2])
 
 		# Subdivide the grid
 		rec = 0
@@ -388,32 +374,24 @@ class AN7_Point_Tri(bpy.types.Operator):
 			rec += 1
 			shuffle(grid)
 			for i, p in enumerate(grid):
-				# Recursion variables
-				s = space / (2.0 ** (float(rec) * 1.0)) * bpy.context.scene.an7_point_gen_settings.temp
-				r = p[3] * 0.5
-				if float(i) / float(len(grid)) < percentage:
-					# Divide hexagon space into three
+				if (float(i) / float(len(grid))) < percentage:
+					# Recursion variables
+					s = 1.0 if p[4] < 1.0 else -1.0 # determine the orientation of the element, which will flip all of our coordinates as needed
+					s /= (2.0 ** float(rec)) # scale multiplier based on the current recursion level
+					r = radius * abs(s) # calculate radius for this recursion level
+					rotationA = pi if s < 0.0 else 0.0 # invert the rotation of the original point
+					rotationB = pi if rotationA == 0.0 else 0.0 # invert it again...what...why...somehow nothing is working how I want it to!
+					# Divide triangular space into four elements
+						# middle
+					gridA.append([p[0], p[1], 0.0, r, rotationB])
 						# top
-					gridA.append([p[0], p[1] + s, 0.0, r])
+					gridA.append([p[0], p[1] + radius * s, 0.0, r, rotationA])
 						# lower left
-					gridA.append([p[0] + y * s, p[1] - x * s, 0.0, r])
+					gridA.append([p[0] + x * s, p[1] - radius * s * 0.5, 0.0, r, rotationA])
 						# lower right
-					gridA.append([p[0] - y * s, p[1] - x * s, 0.0, r])
-					# So I didn't think this through the first time, and dividing hexagons DOESN'T make more hexagons, lol...keeping the code for posterity/laughs?
-						# upper left column
-					# gridA.append([p[0] + x * s, p[1] + y * s, 0.0, r])
-						# left
-					# gridA.append([p[0] + s, p[1], 0.0, r])
-						# lower left
-					# gridA.append([p[0] + x * s, p[1] - y * s, 0.0, r])
-						# lower right
-					# gridA.append([p[0] - x * s, p[1] - y * s, 0.0, r])
-						# right
-					# gridA.append([p[0] - s, p[1], 0.0, r])
-						# upper right
-					# gridA.append([p[0] - x * s, p[1] + y * s, 0.0, r])
+					gridA.append([p[0] - x * s, p[1] - radius * s * 0.5, 0.0, r, rotationA])
 				else:
-					gridB.append(p)
+					gridB.append(p) # these aren't iterated over again, which is why we're not doing any compounding math in the recursion variables...it's entirely recursion level based, no compounding (where any level of recursion might be subdivided...the system gets more complicated, and it means most elements will tend toward medium-levels of division, with very few undivided or fully divided segments in the results)
 			grid = deepcopy(gridA)
 			gridA.clear()
 
@@ -424,7 +402,8 @@ class AN7_Point_Tri(bpy.types.Operator):
 		for i, p in enumerate(gridB):
 			v = bm.verts.new((p[0], p[1], p[2]))
 			v[pr] = p[3]
-			v[pv] = Vector([uniform(-1.0, 1.0), uniform(-1.0, 1.0), uniform(-1.0, 1.0)]).normalized()
+			# v[pv] = Vector([uniform(-1.0, 1.0), uniform(-1.0, 1.0), uniform(-1.0, 1.0)]).normalized()
+			v[pv] = Vector([0.0, 0.0, p[4]])
 			v[ps] = 0.0 if i == 0 else float(i) / float(len(gridB) - 1)
 
 		# Replace object with new mesh data
@@ -679,24 +658,22 @@ class AN7TOOLS_PT_point_gen(bpy.types.Panel):
 					box.label(text="Generate " + str(int(pointCount)) + " points")
 					box.label(text="WARNING: replaces mesh")
 
-			# Hexagonal Grid
-			if bpy.context.scene.an7_point_gen_settings.gen_type == "HEX":
-				layout.prop(context.scene.an7_point_gen_settings, 'hex_count')
+			# Triangular Grid
+			if bpy.context.scene.an7_point_gen_settings.gen_type == "TRI":
+				layout.prop(context.scene.an7_point_gen_settings, 'tri_count')
 				layout.prop(context.scene.an7_point_gen_settings, 'grid_spacing')
-				layout.prop(context.scene.an7_point_gen_settings, 'compensate_scale')
-				layout.prop(context.scene.an7_point_gen_settings, 'temp')
 				layout.prop(context.scene.an7_point_gen_settings, 'division_levels')
 				layout.prop(context.scene.an7_point_gen_settings, 'division_percentage')
 				box = layout.box()
 				if bpy.context.view_layer.objects.active.type == "MESH" and bpy.context.object.mode == "OBJECT":
-					layout.operator(AN7_Point_Hex.bl_idname)
+					layout.operator(AN7_Point_Tri.bl_idname)
 					pointCount = bpy.context.scene.an7_point_gen_settings.hex_count
 					pointCount = 3 * (pointCount*pointCount) + 3 * pointCount + 1
 					box.label(text="Generate " + str(int(pointCount)) + " points")
 					box.label(text="WARNING: replaces mesh")
 
-			# Triangular Grid
-			if bpy.context.scene.an7_point_gen_settings.gen_type == "TRI":
+			# Hexagonal Grid
+			if bpy.context.scene.an7_point_gen_settings.gen_type == "HEX":
 				layout.prop(context.scene.an7_point_gen_settings, 'hex_count')
 				layout.prop(context.scene.an7_point_gen_settings, 'grid_spacing')
 				layout.prop(context.scene.an7_point_gen_settings, 'compensate_scale')
@@ -746,7 +723,7 @@ class AN7TOOLS_PT_point_gen(bpy.types.Panel):
 		except Exception as exc:
 			print(str(exc) + " | Error in the AN7 Point Generator panel")
 
-classes = (AN7PointGenPreferences, AN7_Point_Walk, AN7_Point_Grid, AN7_Point_Hex, an7PointGenSettings, AN7TOOLS_PT_point_gen)
+classes = (AN7PointGenPreferences, AN7_Point_Walk, AN7_Point_Grid, AN7_Point_Tri, AN7_Point_Hex, an7PointGenSettings, AN7TOOLS_PT_point_gen)
 
 ###########################################################################
 # Addon registration functions
