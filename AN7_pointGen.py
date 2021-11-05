@@ -1,7 +1,7 @@
 bl_info = {
 	"name": "AN7 Point Generator",
 	"author": "Iaian7 - John Einselen",
-	"version": (0, 5),
+	"version": (0, 6),
 	"blender": (2, 80, 0),
 	"location": "Scene (object mode) > AN7 Tools > Point Generator",
 	"description": "Creates point arrays with vertex attribute data",
@@ -200,9 +200,9 @@ class AN7_Point_Grid(bpy.types.Operator):
 		bm = bmesh.new()
 
 		# Set up attribute layers
-		pr = bm.verts.layers.float.new('point_radius')
-		ps = bm.verts.layers.float.new('point_sequence')
-		pv = bm.verts.layers.float_vector.new('rotation')
+		pi = bm.verts.layers.float.new('index')
+		ps = bm.verts.layers.float.new('scale')
+		pr = bm.verts.layers.float_vector.new('rotation')
 
 		# Create initial grid
 		grid = []
@@ -234,15 +234,12 @@ class AN7_Point_Grid(bpy.types.Operator):
 		# Create vertices from the points list
 		for i, p in enumerate(gridB):
 			v = bm.verts.new((p[0], p[1], p[2]))
-			v[pr] = p[3]
-			v[ps] = 0.0 if i == 0 else float(i) / float(len(gridB) - 1)
-			# v[pv] = Vector([uniform(-1.0, 1.0), uniform(-1.0, 1.0), uniform(-1.0, 1.0)]).normalized()
-			# Would be nice to randomise this snapped to 90° increments
-			# 1.570796326794896619231321691639751 radians
+			v[pi] = 0.0 if i == 0 else float(i) / float(len(gridB) - 1)
+			v[ps] = p[3]
 			if bpy.context.scene.an7_point_gen_settings.random_rotation:
-				v[pv] = Vector([0.0, 0.0, float(randint(0, 3)) * 1.570796326794896619231321691639751]) # 90° in radians
+				v[pr] = Vector([0.0, 0.0, float(randint(0, 3)) * 1.570796326794896619231321691639751]) # 90° in radians
 			else:
-				v[pv] = Vector([0.0, 0.0, 0.0])
+				v[pr] = Vector([0.0, 0.0, 0.0])
 
 		# Replace object with new mesh data
 		bm.to_mesh(obj.data)
@@ -277,9 +274,9 @@ class AN7_Point_Tri(bpy.types.Operator):
 		bm = bmesh.new()
 
 		# Set up attribute layers
-		pr = bm.verts.layers.float.new('point_radius')
-		ps = bm.verts.layers.float.new('point_sequence')
-		pv = bm.verts.layers.float_vector.new('rotation')
+		pi = bm.verts.layers.float.new('index')
+		ps = bm.verts.layers.float.new('scale')
+		pr = bm.verts.layers.float_vector.new('rotation')
 
 		# Create initial grid
 		grid = []
@@ -329,12 +326,12 @@ class AN7_Point_Tri(bpy.types.Operator):
 		# Create vertices from the points list
 		for i, p in enumerate(gridB):
 			v = bm.verts.new((p[0], p[1], p[2]))
-			v[pr] = p[3]
-			v[ps] = 0.0 if i == 0 else float(i) / float(len(gridB) - 1)
+			v[pi] = 0.0 if i == 0 else float(i) / float(len(gridB) - 1)
+			v[ps] = p[3]
 			if bpy.context.scene.an7_point_gen_settings.random_rotation:
-				v[pv] = Vector([0.0, 0.0, p[4] + float(randint(0, 2)) * 2.094395102393195492308428922186335]) # 120° in radians
+				v[pr] = Vector([0.0, 0.0, p[4] + float(randint(0, 2)) * 2.094395102393195492308428922186335]) # 120° in radians
 			else:
-				v[pv] = Vector([0.0, 0.0, p[4]])
+				v[pr] = Vector([0.0, 0.0, p[4]])
 
 		# Replace object with new mesh data
 		bm.to_mesh(obj.data)
@@ -368,9 +365,9 @@ class AN7_Point_TriHex(bpy.types.Operator):
 		bm = bmesh.new()
 
 		# Set up attribute layers
-		pr = bm.verts.layers.float.new('point_radius')
-		ps = bm.verts.layers.float.new('point_sequence')
-		pv = bm.verts.layers.float_vector.new('rotation')
+		pi = bm.verts.layers.float.new('index')
+		ps = bm.verts.layers.float.new('scale')
+		pr = bm.verts.layers.float_vector.new('rotation')
 
 		# Create initial grid
 		grid = []
@@ -431,12 +428,12 @@ class AN7_Point_TriHex(bpy.types.Operator):
 		# Create vertices from the points list
 		for i, p in enumerate(gridB):
 			v = bm.verts.new((p[0], p[1], p[2]))
-			v[pr] = p[3]
-			v[ps] = 0.0 if i == 0 else float(i) / float(len(gridB) - 1)
+			v[pi] = 0.0 if i == 0 else float(i) / float(len(gridB) - 1)
+			v[ps] = p[3]
 			if bpy.context.scene.an7_point_gen_settings.random_rotation:
-				v[pv] = Vector([0.0, 0.0, p[4] + float(randint(0, 2)) * 2.094395102393195492308428922186335]) # 120° in radians
+				v[pr] = Vector([0.0, 0.0, p[4] + float(randint(0, 2)) * 2.094395102393195492308428922186335]) # 120° in radians
 			else:
-				v[pv] = Vector([0.0, 0.0, p[4]])
+				v[pr] = Vector([0.0, 0.0, p[4]])
 
 		# Replace object with new mesh data
 		bm.to_mesh(obj.data)
@@ -470,9 +467,9 @@ class AN7_Point_Hex(bpy.types.Operator):
 		bm = bmesh.new()
 
 		# Set up attribute layers
-		pr = bm.verts.layers.float.new('point_radius')
-		ps = bm.verts.layers.float.new('point_sequence')
-		pv = bm.verts.layers.float_vector.new('rotation')
+		pi = bm.verts.layers.float.new('index')
+		ps = bm.verts.layers.float.new('scale')
+		pr = bm.verts.layers.float_vector.new('rotation')
 
 		# Create initial grid
 		grid = []
@@ -527,12 +524,12 @@ class AN7_Point_Hex(bpy.types.Operator):
 		# Create vertices from the points list
 		for i, p in enumerate(gridB):
 			v = bm.verts.new((p[0], p[1], p[2]))
-			v[pr] = p[3]
-			v[ps] = 0.0 if i == 0 else float(i) / float(len(gridB) - 1)
+			v[pi] = 0.0 if i == 0 else float(i) / float(len(gridB) - 1)
+			v[ps] = p[3]
 			if bpy.context.scene.an7_point_gen_settings.random_rotation:
-				v[pv] = Vector([0.0, 0.0, float(randint(0, 5)) * 1.047197551196597746154214461093168]) # 60° in radians
+				v[pr] = Vector([0.0, 0.0, float(randint(0, 5)) * 1.047197551196597746154214461093168]) # 60° in radians
 			else:
-				v[pv] = Vector([0.0, 0.0, 0.0])
+				v[pr] = Vector([0.0, 0.0, 0.0])
 
 		# Replace object with new mesh data
 		bm.to_mesh(obj.data)
