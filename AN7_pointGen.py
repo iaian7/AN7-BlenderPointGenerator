@@ -503,12 +503,12 @@ class AN7_Point_Hex(bpy.types.Operator):
 			shuffle(grid)
 			for i, p in enumerate(grid):
 				# Recursion variables
-				s = space / (2.0 ** (float(rec) * 1.0)) / 3.0
+				s = space / ((2.0 ** float(rec)) * 0.6) # I'll be honest, no idea why this works (after it had been working with completely different math, and then mysteriously wasn't working, and I don't know what happened or how I tested it and thought it was fine?)
 				if bpy.context.scene.an7_point_gen_settings.random_rotation and randint(0, 1) == 0: # randomly flip the layout values to prevent recursive triangle formations (thanks to hexagons not dividing into more hexagons)
 					s = -s
 				r = p[3] * 0.5
 				if float(i) / float(len(grid)) < percentage:
-					# Divide hexagon space into three (hexagons don't divide into more hexagons, so this is the compromise we're making)
+					# Divide hexagon space into three (hexagons don't evenly divide into more hexagons, so this is the compromise we're making)
 						# top
 					gridA.append([p[0], p[1] + space * s, 0.0, r])
 						# lower left
