@@ -1,7 +1,7 @@
 bl_info = {
 	"name": "AN7 Point Generator",
 	"author": "Iaian7 - John Einselen",
-	"version": (0, 6, 1),
+	"version": (0, 6, 2),
 	"blender": (2, 80, 0),
 	"location": "Scene (object mode) > AN7 Tools > Point Generator",
 	"description": "Creates point arrays with vertex attribute data",
@@ -401,10 +401,6 @@ class AN7_Point_TriHex(bpy.types.Operator):
 			for i, p in enumerate(grid):
 				if (float(i) / float(len(grid))) < percentage:
 					# Recursion variables
-					print("p:")
-					print(p)
-					print("p[4]:")
-					print(p[4])
 					s = 1.0 if p[4] < 1.0 else -1.0 # determine the orientation of the element, which will flip all of our coordinates as needed
 					s /= (2.0 ** float(rec)) # scale multiplier based on the current recursion level
 					r = radius * abs(s) # calculate radius for this recursion level
@@ -502,8 +498,8 @@ class AN7_Point_Hex(bpy.types.Operator):
 			rec += 1
 			shuffle(grid)
 			for i, p in enumerate(grid):
-				# Recursion variables
-				s = space / ((2.0 ** float(rec)) * 0.6) # I'll be honest, no idea why this works (after it had been working with completely different math, and then mysteriously wasn't working, and I don't know what happened or how I tested it and thought it was fine?)
+				# Recursion scaler (Euler's Constant is the magic number that fixes everything)
+				s = (1.0 / (2.0 ** float(rec))) * 0.57721566490153286060651209008240243104215933593992
 				if bpy.context.scene.an7_point_gen_settings.random_rotation and randint(0, 1) == 0: # randomly flip the layout values to prevent recursive triangle formations (thanks to hexagons not dividing into more hexagons)
 					s = -s
 				r = p[3] * 0.5
@@ -592,7 +588,7 @@ class an7PointGenSettings(bpy.types.PropertyGroup):
 	# Triangular settings
 	tri_count: bpy.props.IntProperty(
 		name="Array Count",
-		description="Number of starting elements in the radius axis",
+		description="Number of starting rows generated across the diameter",
 		default=8,
 		soft_min=2,
 		soft_max=20,
