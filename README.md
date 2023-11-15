@@ -98,3 +98,8 @@ This is definitely the oddest array system out of the bunch, and generates a str
 ![sample render of the random walk feature](images/demo-trihex.jpg)
 
 [demo-trihex.blend](images/demo-trihex.blend.zip)
+
+![sample render of the subdivided squares feature](images/demo-square.jpg)
+
+[demo-square.blend](images/demo-square.blend.zip)
+
