@@ -6,19 +6,9 @@ bl_info = {
 	"location": "Scene (object mode) > AN7 Tools > Point Generator",
 	"description": "Creates point arrays with vertex attribute data",
 	"warning": "inexperienced developer, use at your own risk",
-	"wiki_url": "",
-	"tracker_url": "",
+	"doc_url": "https://github.com/iaian7/AN7-BlenderPointGenerator",
+	"tracker_url": "https://github.com/iaian7/AN7-BlenderPointGenerator/issues",
 	"category": "3D View"}
-
-# Based on the following resources:
-# https://blender.stackexchange.com/questions/95616/generate-x-cubes-at-random-locations-but-not-inside-each-other
-# https://blender.stackexchange.com/questions/1371/organic-yet-accurate-modeling-with-the-golden-spiral
-# https://blender.stackexchange.com/questions/117558/how-to-add-vertices-into-specific-vertex-groups
-# https://blender.stackexchange.com/questions/55484/when-to-use-bmesh-update-edit-mesh-and-when-mesh-update
-# https://blenderartists.org/t/custom-vertex-attributes-data/1311915/3
-# https://www.jasondavies.com/poisson-disc/
-# https://onlinetoolz.net/sequences
-# And most of all, the VF Point Array plugin developed at Vectorform
 
 import bpy
 from bpy.app.handlers import persistent
@@ -914,3 +904,4 @@ def unregister():
 
 if __name__ == "__main__":
 	register()
+	

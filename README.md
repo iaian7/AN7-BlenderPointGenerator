@@ -86,7 +86,7 @@ This is definitely the oddest array system out of the bunch, and generates a str
 - `Point Radius` minimum and maximum values control the range of possible sphere sizes
 - `Radius Decay` interpolates the random radius values down to the minimum value only as the processing continues
 - `Rotation` allows you to choose:
-	- `Random` where each point instance is rotated randomly (helpful when using textured wpheres)
+	- `Random` where each point instance is rotated randomly (helpful when using textured spheres)
 	- `Look Ahead` where each point instance is aligned to the next point in the sequence
 	- `Look Behind` where each point instance is aligned to the previous point in the sequence (these last two are mostly helpful on non-spherical objects with specific directional requirements...note that it's not possible to create a string of oblong beads because the placement is based entirely on sphere radii, not start and end points)
 - `Max Points` sets the maximum number of points that will be generated
